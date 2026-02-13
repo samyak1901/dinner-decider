@@ -23,6 +23,7 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(50), unique=True, nullable=False)
     is_vegetarian = Column(Boolean, default=False)
+    dietary_restrictions = Column(Text, nullable=True)  # e.g., "no peanuts", "halal"
     created_at = Column(DateTime, default=datetime.utcnow)
 
     votes = relationship("Vote", back_populates="user")

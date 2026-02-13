@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { UtensilsCrossed, CalendarDays, History } from 'lucide-react';
+import { UtensilsCrossed, CalendarDays, History, Settings } from 'lucide-react';
 import UserPicker from './UserPicker';
 
 export default function Navbar() {
@@ -26,6 +26,9 @@ export default function Navbar() {
             </NavLink>
             <NavLink to="/history" active={isActive('/history')} icon={<History size={16} />}>
               History
+            </NavLink>
+            <NavLink to="/settings" active={isActive('/settings')} icon={<Settings size={16} />}>
+              Settings
             </NavLink>
           </div>
         </div>

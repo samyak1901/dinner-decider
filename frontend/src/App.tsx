@@ -3,6 +3,7 @@ import { UserProvider } from './context/UserContext';
 import Navbar from './components/Navbar';
 import HomePage from './pages/HomePage';
 import HistoryPage from './pages/HistoryPage';
+import SettingsPage from './pages/SettingsPage';
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/history" element={<HistoryPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
             </Routes>
           </div>
         </div>

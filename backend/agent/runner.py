@@ -7,6 +7,8 @@ from google.adk.sessions import Session
 from google.genai import types
 
 from backend.agent.meal_agent import create_meal_agent
+from backend.database import SessionLocal
+from backend.models import User
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +44,23 @@ def _extract_json(text: str) -> list[dict]:
 
 async def generate_meal_suggestions() -> list[dict]:
     """Run the ADK agent and return parsed meal suggestions."""
-    agent = create_meal_agent()
+    # Fetch live household context from DB
+    db = SessionLocal()
+    try:
+        users = db.query(User).all()
+        num_people = len(users) if users else 2
+        if not users:
+            household_context = "- No users registered. Suggest generally healthy, diverse meals."
+        else:
+            lines = []
+            for u in users:
+                rules = u.dietary_restrictions if u.dietary_restrictions else "No specific restrictions"
+                lines.append(f"- {u.name}: {'Vegetarian' if u.is_vegetarian else 'Omnivore'}. {rules}")
+            household_context = "\n".join(lines)
+    finally:
+        db.close()
+
+    agent = create_meal_agent(household_context=household_context, num_people=num_people)
     runner = InMemoryRunner(agent=agent, app_name="dinner_decider")
 
     session = await runner.session_service.create_session(
@@ -52,7 +70,7 @@ async def generate_meal_suggestions() -> list[dict]:
 
     user_message = types.Content(
         role="user",
-        parts=[types.Part(text="Generate 3 dinner suggestions for tonight. Use the tools to check meal history, user preferences, and current season first, then search for real recipes and YouTube videos.")],
+        parts=[types.Part(text=f"The household consists of:\n{household_context}\n\nGenerate 3 dinner suggestions for tonight. Use the tools to check meal history, user preferences, and current season first, then search for real recipes and YouTube videos.")],
     )
 
     final_text = ""

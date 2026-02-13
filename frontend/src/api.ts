@@ -1,4 +1,5 @@
 import { DaySuggestions, HistoryItem, User } from './types';
+export type { User };
 
 const BASE = '/api';
 
@@ -20,6 +21,24 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
 export function getUsers(): Promise<User[]> {
   return request<User[]>('/users');
+}
+
+export function createUser(name: string, is_vegetarian: boolean, dietary_restrictions?: string): Promise<User> {
+  return request<User>('/users', {
+    method: 'POST',
+    body: JSON.stringify({ name, is_vegetarian, dietary_restrictions }),
+  });
+}
+
+export function updateUser(id: number, data: Partial<Omit<User, 'id'>>): Promise<User> {
+  return request<User>(`/users/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteUser(id: number): Promise<void> {
+  return request(`/users/${id}`, { method: 'DELETE' });
 }
 
 export function getTodaySuggestions(userId?: string): Promise<DaySuggestions> {
