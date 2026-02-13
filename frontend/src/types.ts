@@ -1,7 +1,8 @@
 export interface User {
-  id: string;
+  id: number;
   name: string;
-  avatar_url?: string;
+  is_vegetarian: boolean;
+  dietary_restrictions?: string;
 }
 
 export interface Ingredient {

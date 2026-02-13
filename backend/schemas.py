@@ -4,10 +4,28 @@ from pydantic import BaseModel
 
 
 # --- Users ---
+class UserCreate(BaseModel):
+    name: str
+    is_vegetarian: bool = False
+
+
+class UserCreate(BaseModel):
+    name: str
+    is_vegetarian: bool = False
+    dietary_restrictions: str | None = None
+
+
+class UserUpdate(BaseModel):
+    name: str | None = None
+    is_vegetarian: bool | None = None
+    dietary_restrictions: str | None = None
+
+
 class UserOut(BaseModel):
     id: int
     name: str
     is_vegetarian: bool
+    dietary_restrictions: str | None = None
 
     model_config = {"from_attributes": True}
 

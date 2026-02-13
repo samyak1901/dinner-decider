@@ -8,29 +8,13 @@ from backend.models import User
 from backend.routers import history, suggestions, users, votes
 from backend.scheduler import create_scheduler
 
-SEED_USERS = [
-    {"name": "Samyak", "is_vegetarian": True},
-    {"name": "Friend2", "is_vegetarian": False},
-    {"name": "Friend3", "is_vegetarian": False},
-    {"name": "Friend4", "is_vegetarian": False},
-]
 
-
-def seed_users():
-    db = SessionLocal()
-    try:
-        if db.query(User).count() == 0:
-            for u in SEED_USERS:
-                db.add(User(**u))
-            db.commit()
-    finally:
-        db.close()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Ensure database tables are created
     Base.metadata.create_all(bind=engine)
-    seed_users()
     scheduler = create_scheduler()
     scheduler.start()
     yield
