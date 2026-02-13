@@ -41,14 +41,14 @@ function NavLink({ to, active, icon, children }: { to: string; active: boolean; 
     <Link
       to={to}
       className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300
-        ${active ? 'text-amber-400' : 'text-[var(--color-text-muted)] hover:text-amber-300'}`}
+        ${active ? 'text-amber-600' : 'text-[var(--color-text-muted)] hover:text-amber-500'}`}
     >
       {icon}
       {children}
       {active && (
         <motion.div
           layoutId="activeNav"
-          className="absolute inset-0 bg-amber-500/10 rounded-xl border border-amber-500/20 -z-10"
+          className="absolute inset-0 bg-amber-500/5 rounded-xl border border-amber-500/10 -z-10"
           transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
         />
       )}

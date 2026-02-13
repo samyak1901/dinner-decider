@@ -88,16 +88,22 @@ All information is stored locally in `backend/dinner_decider.db`.
 ### Installation
 
 1. **Clone the repository**
-2. **Backend Setup**:
+2. **Backend Setup (Docker - Recommended)**:
+
    ```bash
-   cd backend
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   pip install -r requirements.txt
    cp .env.example .env      # Add your GOOGLE_API_KEY
-   uvicorn backend.main:app --host 0.0.0.0 --port 8000
+   docker-compose up -d --build
    ```
-3. **Frontend Setup**:
+
+   _The backend will be available at `http://localhost:8000`._
+
+3. **Backend Setup (Manual)**:
+   ```bash
+   uv sync
+   cp .env.example .env      # Add your GOOGLE_API_KEY
+   uv run uvicorn backend.main:app --host 0.0.0.0 --port 8000
+   ```
+4. **Frontend Setup**:
    ```bash
    cd frontend
    npm install
