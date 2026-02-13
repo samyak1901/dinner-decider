@@ -10,6 +10,13 @@ dist/
 *.egg-info/
 .python-version
 
+# database
+*.db
+
+# frontend
+frontend/node_modules/
+frontend/dist/
+
 # tools
 .claude/
 .direnv/
