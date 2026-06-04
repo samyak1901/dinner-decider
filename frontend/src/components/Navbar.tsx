@@ -1,11 +1,13 @@
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { UtensilsCrossed, CalendarDays, History, Settings } from 'lucide-react';
+import { UtensilsCrossed, CalendarDays, History, Settings, LogOut, CalendarRange, BookOpen } from 'lucide-react';
 import UserPicker from './UserPicker';
+import { useUser } from '../context/UserContext';
 
 export default function Navbar() {
   const location = useLocation();
   const isActive = (path: string) => location.pathname === path;
+  const { authRequired, logout } = useUser();
 
   return (
     <nav className="sticky top-0 z-50 px-4 py-3">
@@ -24,6 +26,12 @@ export default function Navbar() {
             <NavLink to="/" active={isActive('/')} icon={<CalendarDays size={16} />}>
               Today
             </NavLink>
+            <NavLink to="/plan" active={isActive('/plan')} icon={<CalendarRange size={16} />}>
+              Plan
+            </NavLink>
+            <NavLink to="/recipes" active={isActive('/recipes')} icon={<BookOpen size={16} />}>
+              Recipes
+            </NavLink>
             <NavLink to="/history" active={isActive('/history')} icon={<History size={16} />}>
               History
             </NavLink>
@@ -33,7 +41,19 @@ export default function Navbar() {
           </div>
         </div>
 
-        <UserPicker />
+        <div className="flex items-center gap-2">
+          <UserPicker />
+          {authRequired && (
+            <button
+              onClick={() => logout()}
+              aria-label="Log out"
+              title="Log out"
+              className="btn-ghost p-2 rounded-xl text-[var(--color-text-muted)] hover:text-amber-500"
+            >
+              <LogOut size={18} />
+            </button>
+          )}
+        </div>
       </div>
     </nav>
   );

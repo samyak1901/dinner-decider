@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Users, UserPlus, Save, Trash2, ShieldAlert, Check, X, Settings as SettingsIcon } from 'lucide-react';
+import { Users, UserPlus, Save, Trash2, ShieldAlert, Check, X, Settings as SettingsIcon, AlertCircle } from 'lucide-react';
 import { getUsers, createUser, updateUser, deleteUser, User } from '../api';
+import { useUser } from '../context/UserContext';
 
 export default function SettingsPage() {
+  const { refreshUsers } = useUser();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   
   // New User Form
@@ -24,11 +27,12 @@ export default function SettingsPage() {
 
   async function loadUsers() {
     setLoading(true);
+    setError(null);
     try {
       const data = await getUsers();
       setUsers(data);
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      setError(e.message);
     } finally {
       setLoading(false);
     }
@@ -37,18 +41,21 @@ export default function SettingsPage() {
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!newName.trim()) return;
+    setError(null);
     try {
       await createUser(newName, newIsVeg, newRestrictions);
       setNewName('');
       setNewIsVeg(false);
       setNewRestrictions('');
-      loadUsers();
-    } catch (e) {
-      console.error(e);
+      await loadUsers();
+      await refreshUsers();
+    } catch (e: any) {
+      setError(e.message);
     }
   }
 
   async function handleUpdate(id: number) {
+    setError(null);
     try {
       await updateUser(id, {
         name: editName,
@@ -56,19 +63,22 @@ export default function SettingsPage() {
         dietary_restrictions: editRestrictions
       });
       setEditingId(null);
-      loadUsers();
-    } catch (e) {
-      console.error(e);
+      await loadUsers();
+      await refreshUsers();
+    } catch (e: any) {
+      setError(e.message);
     }
   }
 
   async function handleDelete(id: number) {
     if (!confirm('Are you sure you want to remove this member?')) return;
+    setError(null);
     try {
       await deleteUser(id);
-      loadUsers();
-    } catch (e) {
-      console.error(e);
+      await loadUsers();
+      await refreshUsers();
+    } catch (e: any) {
+      setError(e.message);
     }
   }
 
@@ -93,6 +103,13 @@ export default function SettingsPage() {
           Manage who's at the table. Your AI assistant uses these details to ensure everyone's dietary needs are met.
         </p>
       </header>
+
+      {error && (
+        <div role="alert" className="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/15 text-red-500 text-sm font-medium flex items-center gap-3">
+          <AlertCircle size={18} className="shrink-0" />
+          {error}
+        </div>
+      )}
 
       <div className="grid gap-8">
         {/* Registration Card */}

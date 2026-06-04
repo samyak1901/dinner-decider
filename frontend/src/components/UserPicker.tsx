@@ -15,6 +15,7 @@ export default function UserPicker() {
         <UserCircle size={20} className="text-[var(--color-text-muted)]" />
       )}
       <select
+        aria-label="Select who is voting"
         value={currentUser?.id ?? ''}
         onChange={(e) => {
           const val = e.target.value;
@@ -33,7 +34,7 @@ export default function UserPicker() {
         <option value="">Who's voting?</option>
         {users.map((u) => (
           <option key={u.id} value={u.id}>
-            {u.name} {(u as any).is_vegetarian ? '🌿' : ''}
+            {u.name} {u.is_vegetarian ? '🌿' : ''}
           </option>
         ))}
       </select>

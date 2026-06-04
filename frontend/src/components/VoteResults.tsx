@@ -7,16 +7,11 @@ interface VoteResultsProps {
 }
 
 export default function VoteResults({ suggestions }: VoteResultsProps) {
-  const processedSuggestions = suggestions.map(s => ({
-    ...s,
-    voters: (s as any).voters || [],
-  }));
-
-  const totalVotes = processedSuggestions.reduce((sum, s) => sum + s.vote_count, 0);
+  const totalVotes = suggestions.reduce((sum, s) => sum + s.vote_count, 0);
   if (totalVotes === 0) return null;
 
-  const maxVotes = Math.max(...processedSuggestions.map((s) => s.vote_count));
-  const leaders = processedSuggestions.filter((s) => s.vote_count === maxVotes);
+  const maxVotes = Math.max(...suggestions.map((s) => s.vote_count));
+  const leaders = suggestions.filter((s) => s.vote_count === maxVotes);
   const isTie = leaders.length > 1 && maxVotes > 0;
 
   return (
@@ -27,7 +22,7 @@ export default function VoteResults({ suggestions }: VoteResultsProps) {
       </div>
 
       <div className="grid gap-5">
-        {processedSuggestions.map((s) => {
+        {suggestions.map((s) => {
           const pct = totalVotes > 0 ? Math.round((s.vote_count / totalVotes) * 100) : 0;
           const isLeader = s.vote_count === maxVotes && maxVotes > 0;
 
@@ -36,7 +31,7 @@ export default function VoteResults({ suggestions }: VoteResultsProps) {
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <span className={`font-bold text-sm ${isLeader ? 'text-amber-400' : 'text-[var(--color-text-secondary)]'}`}>
-                    {s.title || (s as any).meal?.name}
+                    {s.meal.name}
                   </span>
                   {isLeader && <Trophy size={14} className="text-amber-500" />}
                 </div>
@@ -82,7 +77,7 @@ export default function VoteResults({ suggestions }: VoteResultsProps) {
           </span>
         ) : maxVotes > 0 ? (
           <span className="inline-flex items-center gap-2 px-4 py-2 bg-green-500/10 text-green-400 rounded-xl text-sm font-bold border border-green-500/15">
-            🎉 Leading: {leaders[0].title || (leaders[0] as any).meal?.name}
+            🎉 Leading: {leaders[0].meal.name}
           </span>
         ) : null}
       </div>

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, RefreshCw, AlertCircle, CalendarDays } from 'lucide-react';
+import { Sparkles, RefreshCw, AlertCircle, CalendarDays, Soup } from 'lucide-react';
 import { useUser } from '../context/UserContext';
-import { castVote, getTodaySuggestions, refreshSuggestions } from '../api';
+import { castVote, getTodaySuggestions, refreshSuggestions, markLeftovers } from '../api';
 import MealCard from '../components/MealCard';
 import VoteResults from '../components/VoteResults';
-import { DaySuggestions } from '../types';
+import { DaySuggestions, Meal } from '../types';
 import RecipeDrawer from '../components/RecipeDrawer';
 
 function SkeletonCard() {
@@ -33,33 +33,62 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedMeal, setSelectedMeal] = useState<any | null>(null);
+  const [votingId, setVotingId] = useState<number | null>(null);
+  const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const fetchSuggestions = useCallback(() => {
     setLoading(true);
     setError(null);
-    getTodaySuggestions(currentUser?.id)
+    getTodaySuggestions()
       .then(setData)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [currentUser?.id]);
+  }, []);
 
+  // Initial load + refresh the vote highlight when the active member changes.
   useEffect(() => {
     fetchSuggestions();
-    const interval = setInterval(() => {
-      getTodaySuggestions(currentUser?.id)
-        .then(setData)
-        .catch(() => {});
-    }, 10000);
-    return () => clearInterval(interval);
   }, [fetchSuggestions, currentUser?.id]);
+
+  // Background polling: a self-scheduling timeout with jitter and an in-flight
+  // guard so requests never pile up on a slow network, cleaned up on unmount.
+  useEffect(() => {
+    let active = true;
+    let timer: number;
+    let inFlight = false;
+
+    const schedule = () => {
+      const delay = 8000 + Math.random() * 4000; // 8–12s, jittered
+      timer = window.setTimeout(poll, delay);
+    };
+    const poll = async () => {
+      if (!inFlight) {
+        inFlight = true;
+        try {
+          const d = await getTodaySuggestions();
+          if (active) setData(d);
+        } catch {
+          // silent: background refresh shouldn't surface transient errors
+        } finally {
+          inFlight = false;
+        }
+      }
+      if (active) schedule();
+    };
+
+    schedule();
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, []);
 
   async function handleRefresh() {
     setRefreshing(true);
     setError(null);
     try {
-      const result = await refreshSuggestions(currentUser?.id);
+      const result = await refreshSuggestions();
       setData(result);
     } catch (e: any) {
       setError(e.message);
@@ -68,20 +97,36 @@ export default function HomePage() {
     }
   }
 
-  async function handleVote(suggestionId: string) {
+  async function handleVote(suggestionId: number) {
     if (!currentUser) return;
+    setVotingId(suggestionId);
+    setError(null);
     try {
-      await castVote(currentUser.id, suggestionId);
-      const result = await getTodaySuggestions(currentUser.id);
+      await castVote(suggestionId);
+      const result = await getTodaySuggestions();
       setData(result);
     } catch (e: any) {
       setError(e.message);
+    } finally {
+      setVotingId(null);
     }
   }
 
-  function handleShowRecipe(meal: any) {
+  function handleShowRecipe(meal: Meal) {
     setSelectedMeal(meal);
     setIsDrawerOpen(true);
+  }
+
+  async function handleLeftovers() {
+    if (!confirm('Mark tonight as leftovers? This records no cooked meal and skips voting.')) return;
+    setError(null);
+    try {
+      const todayIso = data?.date ?? new Date().toISOString().slice(0, 10);
+      await markLeftovers(todayIso);
+      setError('Tonight is marked as leftovers — enjoy! (see History)');
+    } catch (e: any) {
+      setError(e.message);
+    }
   }
 
   const formattedDate = data?.date ? new Date(data.date + 'T00:00:00').toLocaleDateString('en-US', {
@@ -108,22 +153,32 @@ export default function HomePage() {
           </h1>
         </motion.div>
 
-        <motion.button
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="btn-primary flex items-center gap-2"
-        >
-          {refreshing ? (
-            <RefreshCw size={18} className="animate-spin" />
-          ) : (
-            <Sparkles size={18} />
-          )}
-          {refreshing ? 'Generating...' : 'New Suggestions'}
-        </motion.button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleLeftovers}
+            className="btn-ghost flex items-center gap-2 text-sm"
+            title="Mark tonight as leftovers"
+          >
+            <Soup size={18} />
+            Leftovers tonight
+          </button>
+          <motion.button
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="btn-primary flex items-center gap-2"
+          >
+            {refreshing ? (
+              <RefreshCw size={18} className="animate-spin" />
+            ) : (
+              <Sparkles size={18} />
+            )}
+            {refreshing ? 'Generating...' : 'New Suggestions'}
+          </motion.button>
+        </div>
       </header>
 
       <AnimatePresence>
@@ -178,6 +233,7 @@ export default function HomePage() {
                 onVote={handleVote}
                 onShowRecipe={handleShowRecipe}
                 canVote={!!currentUser}
+                votingId={votingId}
                 index={idx}
               />
             ))}
