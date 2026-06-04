@@ -12,6 +12,7 @@ dist/
 
 # database
 *.db
+*.db-*
 
 # frontend
 frontend/node_modules/
