@@ -1,13 +1,14 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session, joinedload
 
+from backend.auth import require_auth
 from backend.database import get_db
 from backend.models import DailySuggestion, Vote
 from backend.schemas import DailySuggestionOut, SuggestionsResponse
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_auth)])
 
 
 def _build_suggestion_out(
@@ -29,9 +30,11 @@ def _build_suggestion_out(
 
 @router.get("/today", response_model=SuggestionsResponse)
 def get_today_suggestions(
-    user_id: int | None = Query(None),
+    request: Request,
     db: Session = Depends(get_db),
 ):
+    # Highlight the acting member's vote, if a member is selected in the session.
+    user_id = request.session.get("user_id")
     today = date.today()
     suggestions = (
         db.query(DailySuggestion)
@@ -64,11 +67,11 @@ def get_today_suggestions(
 
 @router.post("/refresh", response_model=SuggestionsResponse)
 async def refresh_suggestions(
-    user_id: int | None = Query(None),
+    request: Request,
     db: Session = Depends(get_db),
 ):
     from backend.services.suggestion_service import generate_and_save_suggestions
 
     await generate_and_save_suggestions(db)
 
-    return get_today_suggestions(user_id=user_id, db=db)
+    return get_today_suggestions(request=request, db=db)

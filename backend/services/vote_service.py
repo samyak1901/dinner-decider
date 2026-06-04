@@ -1,5 +1,6 @@
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from backend.models import (
@@ -11,10 +12,30 @@ from backend.models import (
 )
 
 
+def _utcnow() -> datetime:
+    return datetime.now(UTC)
+
+
 def cast_vote(
     db: Session, user_id: int, daily_suggestion_id: int
 ) -> Vote:
     today = date.today()
+
+    # The suggestion must exist and belong to today — reject stale/forged ids
+    # with a clear 404 instead of a foreign-key 500.
+    suggestion = (
+        db.query(DailySuggestion)
+        .filter(
+            DailySuggestion.id == daily_suggestion_id,
+            DailySuggestion.date == today,
+        )
+        .first()
+    )
+    if not suggestion:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No suggestion with that id for today",
+        )
 
     # Upsert: one vote per user per day
     existing = (
@@ -24,7 +45,7 @@ def cast_vote(
     )
     if existing:
         existing.daily_suggestion_id = daily_suggestion_id
-        existing.voted_at = datetime.utcnow()
+        existing.voted_at = _utcnow()
         db.commit()
         db.refresh(existing)
         return existing
@@ -33,7 +54,7 @@ def cast_vote(
         date=today,
         daily_suggestion_id=daily_suggestion_id,
         user_id=user_id,
-        voted_at=datetime.utcnow(),
+        voted_at=_utcnow(),
     )
     db.add(vote)
     db.commit()
@@ -100,7 +121,7 @@ def finalize_votes(db: Session):
     db.add(history)
 
     # Update preferences for users who voted for the winner
-    winning_meal = db.query(Meal).get(winning_suggestion.meal_id)
+    winning_meal = db.get(Meal, winning_suggestion.meal_id)
     if winning_meal and winning_meal.cuisine:
         votes = (
             db.query(Vote)
@@ -141,7 +162,7 @@ def adjust_preference_for_rating(db: Session, meal_history: MealHistory):
     if meal_history.rating is None:
         return
 
-    meal = db.query(Meal).get(meal_history.winning_meal_id)
+    meal = db.get(Meal, meal_history.winning_meal_id)
     if not meal or not meal.cuisine:
         return
 

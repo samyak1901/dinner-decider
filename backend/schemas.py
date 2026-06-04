@@ -1,24 +1,19 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 # --- Users ---
 class UserCreate(BaseModel):
-    name: str
+    name: str = Field(min_length=1, max_length=50)
     is_vegetarian: bool = False
-
-
-class UserCreate(BaseModel):
-    name: str
-    is_vegetarian: bool = False
-    dietary_restrictions: str | None = None
+    dietary_restrictions: str | None = Field(default=None, max_length=500)
 
 
 class UserUpdate(BaseModel):
-    name: str | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=50)
     is_vegetarian: bool | None = None
-    dietary_restrictions: str | None = None
+    dietary_restrictions: str | None = Field(default=None, max_length=500)
 
 
 class UserOut(BaseModel):
@@ -26,6 +21,23 @@ class UserOut(BaseModel):
     name: str
     is_vegetarian: bool
     dietary_restrictions: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+# --- Auth ---
+class LoginRequest(BaseModel):
+    passcode: str = Field(max_length=200)
+
+
+class SelectUserRequest(BaseModel):
+    user_id: int
+
+
+class AuthStatus(BaseModel):
+    authenticated: bool
+    auth_required: bool
+    current_user: UserOut | None = None
 
     model_config = {"from_attributes": True}
 
@@ -45,6 +57,64 @@ class MealOut(BaseModel):
     source_url: str | None = None
 
     model_config = {"from_attributes": True}
+
+
+class MealCreate(BaseModel):
+    """Manual recipe entry / import. Lists are JSON-encoded on save."""
+    name: str = Field(min_length=1, max_length=200)
+    cuisine: str | None = Field(default=None, max_length=50)
+    is_vegetarian: bool = False
+    recipe_summary: str | None = None
+    ingredients: list[str] = []
+    prep_steps: list[str] = []
+    estimated_time_minutes: int | None = Field(default=None, ge=1, le=600)
+    youtube_video_url: str | None = Field(default=None, max_length=500)
+    source_url: str | None = Field(default=None, max_length=500)
+
+
+# --- Weekly plan ---
+class PlanDayOut(BaseModel):
+    date: date
+    meal: MealOut | None = None
+    source: str  # "planned" | "history" | "none"
+    is_pinned: bool = False
+    was_cooked: bool = True
+    note: str | None = None
+
+
+class WeekResponse(BaseModel):
+    start: date
+    days: list[PlanDayOut]
+
+
+class PinRequest(BaseModel):
+    meal_id: int
+    note: str | None = Field(default=None, max_length=500)
+
+
+# --- Shopping list ---
+class ShoppingListRequest(BaseModel):
+    start: date
+    days: int = Field(default=7, ge=1, le=31)
+
+
+class ShoppingItem(BaseModel):
+    item: str
+    meals: list[str]  # which meals contributed this ingredient
+
+
+class ShoppingListResponse(BaseModel):
+    start: date
+    days: int
+    items: list[ShoppingItem]
+
+
+# --- Favourites ---
+class FavouriteOut(BaseModel):
+    meal: MealOut
+    avg_rating: float
+    times_cooked: int
+    last_cooked: date
 
 
 # --- Daily Suggestions ---
@@ -68,7 +138,7 @@ class SuggestionsResponse(BaseModel):
 
 # --- Votes ---
 class VoteRequest(BaseModel):
-    user_id: int
+    # No user_id: the acting member is taken from the session, never the body.
     daily_suggestion_id: int
 
 
@@ -94,7 +164,7 @@ class VoteTodayResponse(BaseModel):
 class MealHistoryOut(BaseModel):
     id: int
     date: date
-    winning_meal: MealOut
+    winning_meal: MealOut | None = None  # None on a "leftovers / no cook" day
     total_votes: int
     was_cooked: bool
     rating: float | None = None
@@ -111,5 +181,5 @@ class HistoryResponse(BaseModel):
 
 
 class RateRequest(BaseModel):
-    rating: float
-    notes: str | None = None
+    rating: float = Field(ge=1, le=5)
+    notes: str | None = Field(default=None, max_length=1000)

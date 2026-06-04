@@ -32,6 +32,24 @@ def get_history(db: Session, page: int = 1) -> HistoryResponse:
     )
 
 
+def mark_leftovers(db: Session, meal_date: date) -> MealHistory:
+    """Record a day as 'leftovers / didn't cook': no winning meal, no
+    preference nudge. Overrides any existing record for that date."""
+    history = db.query(MealHistory).filter(MealHistory.date == meal_date).first()
+    if history:
+        history.winning_meal_id = None
+        history.was_cooked = False
+        history.total_votes = 0
+    else:
+        history = MealHistory(
+            date=meal_date, winning_meal_id=None, was_cooked=False, total_votes=0
+        )
+        db.add(history)
+    db.commit()
+    db.refresh(history)
+    return history
+
+
 def rate_meal(db: Session, meal_date: date, rating: float, notes: str | None):
     history = (
         db.query(MealHistory).filter(MealHistory.date == meal_date).first()

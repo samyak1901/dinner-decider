@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import UTC, datetime
 
 from sqlalchemy import (
     Boolean,
@@ -17,6 +17,10 @@ from sqlalchemy.orm import relationship
 from backend.database import Base
 
 
+def _utcnow() -> datetime:
+    return datetime.now(UTC)
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -24,7 +28,7 @@ class User(Base):
     name = Column(String(50), unique=True, nullable=False)
     is_vegetarian = Column(Boolean, default=False)
     dietary_restrictions = Column(Text, nullable=True)  # e.g., "no peanuts", "halal"
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
 
     votes = relationship("Vote", back_populates="user")
     preferences = relationship("Preference", back_populates="user")
@@ -44,7 +48,7 @@ class Meal(Base):
     youtube_video_url = Column(String(500))
     youtube_video_title = Column(String(300))
     source_url = Column(String(500))
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
 
 
 class DailySuggestion(Base):
@@ -72,7 +76,7 @@ class Vote(Base):
         Integer, ForeignKey("daily_suggestions.id"), nullable=False
     )
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    voted_at = Column(DateTime, default=datetime.utcnow)
+    voted_at = Column(DateTime, default=_utcnow)
 
     __table_args__ = (UniqueConstraint("user_id", "date"),)
 
@@ -85,7 +89,8 @@ class MealHistory(Base):
 
     id = Column(Integer, primary_key=True)
     date = Column(Date, unique=True, nullable=False)
-    winning_meal_id = Column(Integer, ForeignKey("meals.id"), nullable=False)
+    # Nullable: a "leftovers / didn't cook" day has no winning meal.
+    winning_meal_id = Column(Integer, ForeignKey("meals.id"), nullable=True)
     total_votes = Column(Integer, default=0)
     was_cooked = Column(Boolean, default=True)
     rating = Column(Float, nullable=True)
@@ -105,3 +110,18 @@ class Preference(Base):
     __table_args__ = (UniqueConstraint("user_id", "cuisine"),)
 
     user = relationship("User", back_populates="preferences")
+
+
+class PlannedMeal(Base):
+    """A manual override / pin: the meal chosen for a specific date,
+    independent of the daily AI suggestions."""
+
+    __tablename__ = "planned_meals"
+
+    id = Column(Integer, primary_key=True)
+    date = Column(Date, unique=True, nullable=False)
+    meal_id = Column(Integer, ForeignKey("meals.id"), nullable=False)
+    note = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=_utcnow)
+
+    meal = relationship("Meal")

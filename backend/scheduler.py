@@ -12,12 +12,16 @@ logger = logging.getLogger(__name__)
 
 def _generate_suggestions_job():
     """Daily job to generate meal suggestions."""
+    from backend.notifications import notify
     from backend.services.suggestion_service import generate_and_save_suggestions
 
     db = SessionLocal()
     try:
-        asyncio.run(generate_and_save_suggestions(db))
+        suggestions = asyncio.run(generate_and_save_suggestions(db))
         logger.info("Daily suggestions generated successfully")
+        if suggestions:
+            names = ", ".join(s.meal.name for s in suggestions if s.meal)
+            notify(f"Tonight's dinner options are ready: {names}. Cast your vote!")
     except Exception:
         logger.exception("Failed to generate daily suggestions")
     finally:
@@ -37,7 +41,13 @@ def _finalize_votes_job():
 
 
 def create_scheduler() -> BackgroundScheduler:
-    scheduler = BackgroundScheduler()
+    # Run cron jobs in the configured household timezone, and tolerate a
+    # restart near a trigger: coalesce collapses missed runs into one, and
+    # misfire_grace_time lets a job that was due during downtime still fire.
+    scheduler = BackgroundScheduler(
+        timezone=settings.timezone,
+        job_defaults={"coalesce": True, "misfire_grace_time": 3600},
+    )
 
     # Generate suggestions at configured hour (default 5 PM)
     scheduler.add_job(
