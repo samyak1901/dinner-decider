@@ -1,6 +1,6 @@
 interface VideoEmbedProps {
-  url?: string;
-  title?: string;
+  url?: string | null;
+  title?: string | null;
 }
 
 export default function VideoEmbed({ url, title }: VideoEmbedProps) {

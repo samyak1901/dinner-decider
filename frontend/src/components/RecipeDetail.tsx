@@ -2,17 +2,21 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChefHat, ListChecks, Play, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 import VideoEmbed from './VideoEmbed';
+import { Meal } from '../types';
 
 interface RecipeDetailProps {
-  meal: any;
+  meal: Meal;
   isExpandedByDefault?: boolean;
 }
 
-function parseJson(str: any) {
+function parseJson(str: string | null | undefined): string[] {
   if (!str) return [];
-  if (Array.isArray(str)) return str;
   try {
-    return JSON.parse(str);
+    const parsed = JSON.parse(str);
+    if (Array.isArray(parsed)) {
+      return parsed.map((item) => (typeof item === 'string' ? item : JSON.stringify(item)));
+    }
+    return [String(parsed)];
   } catch {
     return [str];
   }

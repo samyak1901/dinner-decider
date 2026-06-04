@@ -1,14 +1,15 @@
 import { motion } from 'framer-motion';
 import { ChefHat, Timer, Leaf, Flame } from 'lucide-react';
 import VoteButton from './VoteButton';
-import { Suggestion } from '../types';
+import { Meal, Suggestion } from '../types';
 
 interface MealCardProps {
   suggestion: Suggestion;
-  userVoteId?: string;
-  onVote: (id: string) => void;
-  onShowRecipe: (meal: any) => void;
+  userVoteId?: number | null;
+  onVote: (id: number) => void;
+  onShowRecipe: (meal: Meal) => void;
   canVote: boolean;
+  votingId?: number | null;
   index?: number;
 }
 
@@ -18,9 +19,9 @@ const ACCENT_COLORS = [
   { from: 'from-violet-500', to: 'to-indigo-500', shadow: 'shadow-violet-500/10' },
 ];
 
-export default function MealCard({ suggestion, userVoteId, onVote, onShowRecipe, canVote, index = 0 }: MealCardProps) {
-  const meal = (suggestion as any).meal;
-  const vegAlt = (suggestion as any).veg_alternative;
+export default function MealCard({ suggestion, userVoteId, onVote, onShowRecipe, canVote, votingId, index = 0 }: MealCardProps) {
+  const meal = suggestion.meal;
+  const vegAlt = suggestion.veg_alternative;
   const isSelected = userVoteId === suggestion.id;
   const accent = ACCENT_COLORS[index % ACCENT_COLORS.length];
 
@@ -46,8 +47,14 @@ export default function MealCard({ suggestion, userVoteId, onVote, onShowRecipe,
               {meal.name}
             </h3>
           </div>
-          <div className={`p-2.5 rounded-xl ${meal.is_vegetarian ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
-            {meal.is_vegetarian ? <Leaf size={22} /> : <Flame size={22} />}
+          <div
+            role="img"
+            aria-label={meal.is_vegetarian ? 'Vegetarian' : 'Contains meat'}
+            title={meal.is_vegetarian ? 'Vegetarian' : 'Contains meat'}
+            className={`flex flex-col items-center gap-0.5 p-2 rounded-xl ${meal.is_vegetarian ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}
+          >
+            {meal.is_vegetarian ? <Leaf size={20} /> : <Flame size={20} />}
+            <span className="text-[9px] font-black uppercase tracking-wider">{meal.is_vegetarian ? 'Veg' : 'Meat'}</span>
           </div>
         </div>
 
@@ -102,6 +109,7 @@ export default function MealCard({ suggestion, userVoteId, onVote, onShowRecipe,
             isSelected={isSelected}
             onVote={onVote}
             disabled={!canVote}
+            voting={votingId === suggestion.id}
           />
         )}
       </div>

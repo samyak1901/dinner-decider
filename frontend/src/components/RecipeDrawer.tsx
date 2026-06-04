@@ -1,14 +1,25 @@
+import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChefHat, Leaf, Flame, Timer } from 'lucide-react';
 import RecipeDetail from './RecipeDetail';
+import { Meal } from '../types';
 
 interface RecipeDrawerProps {
-  meal: any | null;
+  meal: Meal | null;
   isOpen: boolean;
   onClose: () => void;
 }
 
 export default function RecipeDrawer({ meal, isOpen, onClose }: RecipeDrawerProps) {
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
+
   return (
     <AnimatePresence>
       {isOpen && meal && (
@@ -24,6 +35,9 @@ export default function RecipeDrawer({ meal, isOpen, onClose }: RecipeDrawerProp
 
           {/* Drawer */}
           <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Recipe: ${meal.name}`}
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
@@ -53,7 +67,8 @@ export default function RecipeDrawer({ meal, isOpen, onClose }: RecipeDrawerProp
               </div>
               <button
                 onClick={onClose}
-                className="p-2 rounded-full hover:bg-black/5 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
+                aria-label="Close recipe"
+                className="p-2 rounded-full hover:bg-black/5 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60"
               >
                 <X size={24} />
               </button>

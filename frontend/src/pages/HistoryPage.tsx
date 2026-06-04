@@ -1,27 +1,34 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { History, Star, MessageSquare, ChevronLeft, ChevronRight, Calendar, ChefHat } from 'lucide-react';
+import { History, Star, MessageSquare, ChevronLeft, ChevronRight, Calendar, ChefHat, AlertCircle } from 'lucide-react';
 import RecipeDrawer from '../components/RecipeDrawer';
 import { getHistory, rateMeal } from '../api';
+import { HistoryResponse, Meal } from '../types';
 
 export default function HistoryPage() {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<HistoryResponse | null>(null);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [ratingFor, setRatingFor] = useState<string | null>(null);
   const [ratingValue, setRatingValue] = useState(5);
   const [ratingNotes, setRatingNotes] = useState('');
-  const [selectedMeal, setSelectedMeal] = useState<any | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
     getHistory(page)
       .then(setData)
+      .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [page]);
 
   async function handleRate(date: string) {
+    setSaving(true);
+    setError(null);
     try {
       await rateMeal(date, ratingValue, ratingNotes || '');
       setRatingFor(null);
@@ -29,8 +36,10 @@ export default function HistoryPage() {
       setRatingNotes('');
       const result = await getHistory(page);
       setData(result);
-    } catch {
-      // ignore
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -59,6 +68,13 @@ export default function HistoryPage() {
         </h1>
       </header>
 
+      {error && (
+        <div role="alert" className="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/15 text-red-400 text-sm font-medium flex items-center gap-3">
+          <AlertCircle size={18} className="shrink-0" />
+          {error}
+        </div>
+      )}
+
       {!data?.items?.length ? (
         <div className="rounded-2xl border border-dashed border-white/10 py-20 text-center glass-card">
           <History size={40} className="mx-auto text-[var(--color-text-muted)] mb-4" />
@@ -69,7 +85,7 @@ export default function HistoryPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {data.items.map((item: any, idx: number) => (
+          {data.items.map((item, idx) => (
             <motion.div
               key={item.id}
               initial={{ opacity: 0, x: -16 }}
@@ -103,6 +119,7 @@ export default function HistoryPage() {
                         }}
                         className="p-1.5 rounded-lg bg-white/5 text-amber-400/60 hover:text-amber-400 hover:bg-white/10 transition-all"
                         title="View Recipe Details"
+                        aria-label={`View recipe for ${item.winning_meal.name}`}
                       >
                         <ChefHat size={14} />
                       </button>
@@ -118,7 +135,7 @@ export default function HistoryPage() {
                           <Star
                             key={i}
                             size={12}
-                            className={i < Math.round(item.rating) ? 'fill-amber-500 text-amber-500' : 'text-white/10'}
+                            className={i < Math.round(item.rating ?? 0) ? 'fill-amber-500 text-amber-500' : 'text-white/10'}
                           />
                         ))}
                       </div>
@@ -193,9 +210,10 @@ export default function HistoryPage() {
                         </button>
                         <button
                           onClick={() => handleRate(item.date)}
-                          className="btn-primary py-2 px-5 text-sm"
+                          disabled={saving}
+                          className="btn-primary py-2 px-5 text-sm disabled:opacity-50"
                         >
-                          Save
+                          {saving ? 'Saving…' : 'Save'}
                         </button>
                       </div>
                     </div>
