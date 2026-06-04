@@ -4,7 +4,13 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
-from backend.models import DailySuggestion, Meal
+from backend.agent.postprocess import (
+    enforce_dietary_safety,
+    meal_to_dict,
+    seed_meals,
+    validate_meals,
+)
+from backend.models import DailySuggestion, Meal, User
 
 logger = logging.getLogger(__name__)
 
@@ -27,17 +33,78 @@ def _save_meal(db: Session, meal_data: dict, is_veg: bool) -> Meal:
     return meal
 
 
+def _last_known_good(db: Session, users) -> list[dict]:
+    """Reuse the most recent prior day's suggestions as a fallback."""
+    today = date.today()
+    prior_date = (
+        db.query(DailySuggestion.date)
+        .filter(DailySuggestion.date < today)
+        .order_by(DailySuggestion.date.desc())
+        .limit(1)
+        .scalar()
+    )
+    if not prior_date:
+        return []
+    prior = (
+        db.query(DailySuggestion)
+        .filter(DailySuggestion.date == prior_date)
+        .order_by(DailySuggestion.slot_number)
+        .all()
+    )
+    meals = []
+    for s in prior:
+        meal = meal_to_dict(s.meal)
+        if s.veg_alternative:
+            meal["veg_alternative"] = meal_to_dict(s.veg_alternative)
+        meals.append(meal)
+    return enforce_dietary_safety(validate_meals(meals), users)
+
+
+def _resolve_meals(db: Session, raw: list[dict] | None, users) -> tuple[list[dict], str]:
+    """Apply validation + dietary safety, then fall through to last-known-good
+    and finally the built-in seed menu so we always have something to show."""
+    meals = enforce_dietary_safety(validate_meals(raw), users)
+    if meals:
+        return meals[:3], "agent"
+
+    meals = _last_known_good(db, users)
+    if meals:
+        return meals[:3], "last_known_good"
+
+    meals = enforce_dietary_safety(seed_meals(), users)
+    return meals[:3], "seed"
+
+
 async def generate_and_save_suggestions(db: Session) -> list[DailySuggestion]:
-    """Run the AI agent and save results to the database."""
+    """Run the AI agent and save results, falling back so the page is never
+    empty and never wiping today's suggestions unless we have a replacement."""
     from backend.agent.runner import generate_meal_suggestions
 
     today = date.today()
+    users = db.query(User).all()
 
-    # Delete existing suggestions for today (refresh)
+    try:
+        raw = await generate_meal_suggestions()
+    except Exception:
+        logger.exception("Agent generation failed; falling back")
+        raw = None
+
+    meals_data, source = _resolve_meals(db, raw, users)
+
+    if not meals_data:
+        # Every source came up empty (e.g. allergies rule everything out).
+        # Leave any existing suggestions in place rather than blanking the page.
+        logger.error("No valid meals from any source; keeping existing suggestions")
+        return (
+            db.query(DailySuggestion)
+            .filter(DailySuggestion.date == today)
+            .order_by(DailySuggestion.slot_number)
+            .all()
+        )
+
+    # We have a replacement set — now it's safe to swap.
     db.query(DailySuggestion).filter(DailySuggestion.date == today).delete()
     db.flush()
-
-    meals_data = await generate_meal_suggestions()
 
     suggestions = []
     for i, meal_data in enumerate(meals_data[:3], start=1):
@@ -60,5 +127,7 @@ async def generate_and_save_suggestions(db: Session) -> list[DailySuggestion]:
         suggestions.append(suggestion)
 
     db.commit()
-    logger.info("Saved %d suggestions for %s", len(suggestions), today)
+    logger.info(
+        "Saved %d suggestions for %s (source=%s)", len(suggestions), today, source
+    )
     return suggestions
